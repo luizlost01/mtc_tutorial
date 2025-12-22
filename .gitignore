@@ -1,0 +1,55 @@
+# Build and Install directories (ROS 2 / Colcon)
+build/
+install/
+devel/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Compiled objects and executables
+*.o
+*.a
+*.so
+*.exe
+*.dll
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.clangd
+.clang-format
+compile_commands.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# ROS logs and temporary files
+log/
+logs/
+*.log
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+# Dependencies
+node_modules/
