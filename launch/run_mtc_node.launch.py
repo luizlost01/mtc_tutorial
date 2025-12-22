@@ -1,12 +1,15 @@
 import os
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess
+from launch.actions import ExecuteProcess, TimerAction, DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 from moveit_configs_utils import MoveItConfigsBuilder
 
 
 def generate_launch_description():
+    spawn_arm_and_hand = LaunchConfiguration("spawn_arm_and_hand")
     # planning_context
     moveit_config = (
         MoveItConfigsBuilder("moveit_resources_panda")
@@ -64,20 +67,32 @@ def generate_launch_description():
         output="both",
     )
 
-    # Load controllers
-    load_controllers = []
-    for controller in [
-        "panda_arm_controller",
-        "panda_hand_controller",
-        "joint_state_broadcaster",
-    ]:
-        load_controllers += [
-            ExecuteProcess(
-                cmd=["ros2 run controller_manager spawner {}".format(controller)],
-                shell=True,
-                output="screen",
-            )
-        ]
+    # Load controllers (spawn via controller_manager spawner)
+    # Always spawn joint_state_broadcaster; arm/hand spawners are conditional.
+    controller_spawners = [
+        Node(
+            package="controller_manager",
+            executable="spawner",
+            arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
+            output="screen",
+        ),
+        Node(
+            package="controller_manager",
+            executable="spawner",
+            arguments=["panda_arm_controller", "--controller-manager", "/controller_manager"],
+            output="screen",
+            condition=IfCondition(spawn_arm_and_hand),
+        ),
+        Node(
+            package="controller_manager",
+            executable="spawner",
+            arguments=["panda_hand_controller", "--controller-manager", "/controller_manager"],
+            output="screen",
+            condition=IfCondition(spawn_arm_and_hand),
+        ),
+    ]
+    # Delay spawners slightly so controller_manager is ready
+    delayed_controller_spawners = TimerAction(period=2.0, actions=controller_spawners)
 
     # MTC Demo node
     mtc_node = Node(
@@ -91,11 +106,21 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            # If your ros2_controllers.yaml auto-activates arm/hand controllers,
+            # leave spawn_arm_and_hand as 'false' to avoid duplication.
+            DeclareLaunchArgument(
+                "spawn_arm_and_hand",
+                default_value="false",
+                description=(
+                    "Spawn arm/hand controllers in addition to joint_state_broadcaster. "
+                    "Set true if controllers are NOT auto-loaded/activated by your ros2_controllers.yaml."
+                ),
+            ),
             static_tf,
             robot_state_publisher,
             run_move_group_node,
             ros2_control_node,
             mtc_node,
+            delayed_controller_spawners,
         ]
-        + load_controllers
     )
