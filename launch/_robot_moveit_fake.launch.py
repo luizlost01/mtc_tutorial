@@ -113,6 +113,18 @@ def launch_setup(context, *args, **kwargs):
     .to_moveit_configs()
     )
     
+    # Load kinematics configuration
+    kinematics_yaml_path = os.path.join(
+        get_package_share_directory('xarm_moveit_config'),
+        'config',
+        xarm_type,
+        'kinematics.yaml'
+    )
+    with open(kinematics_yaml_path, 'r') as f:
+        kinematics_config = yaml.safe_load(f)
+    
+    moveit_config.robot_description_kinematics = {'robot_description_kinematics': kinematics_config}
+    
     # robot description launch
     # xarm_description/launch/_robot_description.launch.py
     robot_description_launch = IncludeLaunchDescription(
@@ -163,6 +175,18 @@ def launch_setup(context, *args, **kwargs):
         ],
     )
 
+    # RViz with preconfigured MTC panel bound to root namespace topics
+    rviz_config_path = os.path.join(
+        get_package_share_directory('mtc_tutorial'), 'rviz', 'mtc_xarm6.rviz'
+    )
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        output='log',
+        arguments=['-d', rviz_config_path],
+    )
+
     joint_state_broadcaster = Node(
         package='controller_manager',
         executable='spawner',
@@ -192,6 +216,7 @@ def launch_setup(context, *args, **kwargs):
         joint_state_broadcaster,
         ros2_control_launch,
         mtc_node,
+        rviz_node,
     ] + controller_nodes
 
 
