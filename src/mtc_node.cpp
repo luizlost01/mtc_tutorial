@@ -79,7 +79,7 @@ void MTCTaskNode::doTask()
     return;
   }
 
-  if (!task_.plan(5 /* max_solutions */))
+  if (!task_.plan(10 /* max_solutions */))
   {
     RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");
     return;
