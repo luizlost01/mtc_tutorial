@@ -114,12 +114,7 @@ def launch_setup(context, *args, **kwargs):
     )
     
     # Load kinematics configuration
-    kinematics_yaml_path = os.path.join(
-        get_package_share_directory('xarm_moveit_config'),
-        'config',
-        xarm_type,
-        'kinematics.yaml'
-    )
+    kinematics_yaml_path = '/home/insider/xarm6_ws/src/xarm_ros2/xarm_moveit_config/config/xarm6/kinematics.yaml'
     with open(kinematics_yaml_path, 'r') as f:
         kinematics_config = yaml.safe_load(f)
     

@@ -56,8 +56,8 @@ void MTCTaskNode::setupPlanningScene()
   object.primitives[0].dimensions = { 0.1, 0.02 };
 
   geometry_msgs::msg::Pose pose;
-  pose.position.x = 0.50;
-  pose.position.y = -0.30;
+  pose.position.x = 0.5;
+  pose.position.y = -0.25;
   pose.orientation.w = 1.0;
   object.pose = pose;
 
@@ -72,9 +72,6 @@ void MTCTaskNode::doTask()
   try
   {
     task_.init();
-    // Publish task description so RViz MTC panel can display the task graph
-    task_.introspection().publishTaskDescription();
-    task_.introspection().publishTaskState();
   }
   catch (mtc::InitStageException& e)
   {
@@ -82,15 +79,12 @@ void MTCTaskNode::doTask()
     return;
   }
 
-  if (!task_.plan(5 /* max_solutions */))
+  if (!task_.plan(10 /* max_solutions */))
   {
     RCLCPP_ERROR_STREAM(LOGGER, "Task planning failed");
-    // Publish current task state even if planning failed to aid debugging in RViz
-    task_.introspection().publishTaskState();
     return;
   }
-  // Publish all found solutions to RViz
-  task_.introspection().publishAllSolutions(true);
+  task_.introspection().publishSolution(*task_.solutions().front());
 
   auto result = task_.execute(*task_.solutions().front());
   if (result.val != moveit_msgs::msg::MoveItErrorCodes::SUCCESS)
@@ -108,9 +102,9 @@ mtc::Task MTCTaskNode::createTask()
   task.stages()->setName("demo task");
   task.loadRobotModel(node_);
 
-  const auto& arm_group_name = "xarm6";
-  const auto& hand_group_name = "xarm_gripper";
-  const auto& hand_frame = "link_eef";
+  const auto& arm_group_name = "panda_arm";
+  const auto& hand_group_name = "hand";
+  const auto& hand_frame = "panda_hand";
 
   // Set task properties
   task.setProperty("group", arm_group_name);
@@ -195,9 +189,11 @@ mtc::Task MTCTaskNode::createTask()
 
       // This is the transform from the object frame to the end-effector frame
       Eigen::Isometry3d grasp_frame_transform;
-      Eigen::Quaterniond q(Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitX()));
+      Eigen::Quaterniond q = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitX()) *
+                             Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitY()) *
+                             Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ());
       grasp_frame_transform.linear() = q.matrix();
-      grasp_frame_transform.translation().z() = 0.2;
+      grasp_frame_transform.translation().z() = 0.1;
 
       // Compute IK
       // clang-format off
@@ -355,7 +351,7 @@ mtc::Task MTCTaskNode::createTask()
   {
     auto stage = std::make_unique<mtc::stages::MoveTo>("return home", interpolation_planner);
     stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-    stage->setGoal("home");
+    stage->setGoal("ready");
     task.add(std::move(stage));
   }
   return task;
