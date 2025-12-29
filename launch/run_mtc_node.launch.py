@@ -115,8 +115,21 @@ def launch_setup(context, *args, **kwargs):
     )
     .to_moveit_configs()
     )
-    # ========================================
     
+    # =========================================================================
+    # === MTC CAPABILITY INJECTION ===
+    # =========================================================================
+    moveit_config_dict = moveit_config.to_dict()
+    
+    # Add necessary capability for MTC to execute solution
+    mtc_capability = " move_group/ExecuteTaskSolutionCapability"
+    
+    if "capabilities" in moveit_config_dict:
+        moveit_config_dict["capabilities"] += mtc_capability
+    else:
+        moveit_config_dict["capabilities"] = mtc_capability.strip()
+    # =========================================================================
+
     robot_description_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(PathJoinSubstitution([FindPackageShare('xarm_description'), 'launch', '_robot_description.launch.py'])),
         launch_arguments={
@@ -133,7 +146,7 @@ def launch_setup(context, *args, **kwargs):
             'attach_rpy': attach_rpy,
             'no_gui_ctrl': no_gui_ctrl,
             'use_sim_time': 'false',
-            'moveit_config_dump': yaml.dump(moveit_config.to_dict()),
+            'moveit_config_dump': yaml.dump(moveit_config_dict),
         }.items(),
     )
 
@@ -157,9 +170,17 @@ def launch_setup(context, *args, **kwargs):
         name='mtc_node',
         output='screen',
         parameters=[
-            moveit_config.to_dict(),
+            moveit_config_dict, 
         ],
     )
+
+    # === NEW: DELAY MTC NODE ===
+    # We delay the node start by 15s to ensure controllers (which load at 8s+) are ready.
+    delayed_mtc_node = TimerAction(
+        period=15.0,
+        actions=[mtc_node]
+    )
+    # ===========================
 
     rviz_config_path = os.path.join(
         get_package_share_directory('mtc_tutorial'), 'rviz', 'mtc_xarm6.rviz'
@@ -177,7 +198,7 @@ def launch_setup(context, *args, **kwargs):
     
     # Delay controller spawning to allow ros2_control to fully initialize
     joint_state_broadcaster = TimerAction(
-        period=2.0,
+        period=5.0,
         actions=[Node(
             package='controller_manager',
             executable='spawner',
@@ -192,7 +213,7 @@ def launch_setup(context, *args, **kwargs):
     controller_nodes = []
     for idx, controller in enumerate(controllers):
         controller_nodes.append(TimerAction(
-            period=3.0 + (idx * 0.5),  # Stagger controller loading
+            period=8.0 + (idx * 0.5),  # Stagger controller loading
             actions=[Node(
                 package='controller_manager',
                 executable='spawner',
@@ -209,7 +230,7 @@ def launch_setup(context, *args, **kwargs):
         ros2_control_launch,
         joint_state_broadcaster,
         robot_moveit_common_launch,
-        mtc_node,
+        delayed_mtc_node, # <--- Updated to use the delayed version
     ] + controller_nodes
 
 def generate_launch_description():
