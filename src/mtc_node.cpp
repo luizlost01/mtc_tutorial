@@ -1,5 +1,5 @@
-//Author: Luizlost01
-// Ao Rodar adicionar o topico motion planning task e colocar no campo task solution topic o topico /solution
+// Author: Luizlost01
+//  Ao Rodar adicionar o topico motion planning task e colocar no campo task solution topic o topico /solution
 #include <rclcpp/rclcpp.hpp>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
@@ -23,7 +23,7 @@ namespace mtc = moveit::task_constructor;
 class MTCTaskNode
 {
 public:
-  MTCTaskNode(const rclcpp::NodeOptions& options);
+  MTCTaskNode(const rclcpp::NodeOptions &options);
 
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr getNodeBaseInterface();
 
@@ -32,14 +32,13 @@ public:
   void setupPlanningScene();
 
 private:
-  // Compose an MTC task from a series of stages.
   mtc::Task createTask();
   mtc::Task task_;
   rclcpp::Node::SharedPtr node_;
 };
 
-MTCTaskNode::MTCTaskNode(const rclcpp::NodeOptions& options)
-  : node_{ std::make_shared<rclcpp::Node>("mtc_node", options) }
+MTCTaskNode::MTCTaskNode(const rclcpp::NodeOptions &options)
+    : node_{std::make_shared<rclcpp::Node>("mtc_node", options)}
 {
 }
 
@@ -50,12 +49,31 @@ rclcpp::node_interfaces::NodeBaseInterface::SharedPtr MTCTaskNode::getNodeBaseIn
 
 void MTCTaskNode::setupPlanningScene()
 {
+  moveit_msgs::msg::CollisionObject wall;
+  wall.id = "wall";
+  wall.header.frame_id = "world";
+  
+  wall.primitives.resize(1);
+
+  wall.primitives[0].type = shape_msgs::msg::SolidPrimitive::BOX;
+  wall.primitives[0].dimensions = {0.30, 0.10, 1.0};
+  
+  geometry_msgs::msg::Pose position;
+  position.position.x = 0.53;
+  position.position.y = 0.0;
+  position.position.z = 0.39;
+  position.orientation.w = 1.0;
+  wall.pose = position;  
+  
+  moveit::planning_interface::PlanningSceneInterface psi_wall;
+  psi_wall.applyCollisionObject(wall);
+  
   moveit_msgs::msg::CollisionObject object;
   object.id = "object";
   object.header.frame_id = "world";
   object.primitives.resize(1);
   object.primitives[0].type = shape_msgs::msg::SolidPrimitive::CYLINDER;
-  object.primitives[0].dimensions = { 0.1, 0.02 };
+  object.primitives[0].dimensions = {0.1, 0.02};
 
   geometry_msgs::msg::Pose pose;
   pose.position.x = 0.70;
@@ -76,7 +94,7 @@ void MTCTaskNode::doTask()
   {
     task_.init();
   }
-  catch (mtc::InitStageException& e)
+  catch (mtc::InitStageException &e)
   {
     RCLCPP_ERROR_STREAM(LOGGER, e);
     return;
@@ -105,16 +123,16 @@ mtc::Task MTCTaskNode::createTask()
   task.stages()->setName("demo task");
   task.loadRobotModel(node_);
 
-  const auto& arm_group_name = "xarm6";
-  const auto& hand_group_name = "xarm_gripper";
-  const auto& hand_frame = "link_tcp";
+  const auto &arm_group_name = "xarm6";
+  const auto &hand_group_name = "xarm_gripper";
+  const auto &hand_frame = "link_tcp";
 
   // Set task properties
   task.setProperty("group", arm_group_name);
   task.setProperty("eef", hand_group_name);
   task.setProperty("ik_frame", hand_frame);
 
-  mtc::Stage* current_state_ptr = nullptr;
+  mtc::Stage *current_state_ptr = nullptr;
   auto stage_state_current = std::make_unique<mtc::stages::CurrentState>("current");
   current_state_ptr = stage_state_current.get();
   task.add(std::move(stage_state_current));
@@ -152,7 +170,7 @@ mtc::Task MTCTaskNode::createTask()
 
   {
     auto grasp = std::make_unique<mtc::SerialContainer>("pick object");
-    task.properties().exposeTo(grasp->properties(), { "eef", "group", "ik_frame" });
+    task.properties().exposeTo(grasp->properties(), {"eef", "group", "ik_frame"});
     // clang-format off
     grasp->properties().configureInitFrom(mtc::Stage::PARENT,
                                           { "eef", "group", "ik_frame" });
@@ -165,8 +183,8 @@ mtc::Task MTCTaskNode::createTask()
       // clang-format on
       stage->properties().set("marker_ns", "approach_object");
       stage->properties().set("link", hand_frame);
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      
+      stage->properties().configureInitFrom(mtc::Stage::PARENT, {"group"});
+
       // FIX: Lowered minimum distance to 0.05m (5cm) to allow more flexible solutions
       stage->setMinMaxDistance(0.05, 0.15);
 
@@ -192,17 +210,17 @@ mtc::Task MTCTaskNode::createTask()
                              Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitY()) *
                              Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ());
       grasp_frame_transform.linear() = q.matrix();
-      grasp_frame_transform.translation().z() = 0.08; 
+      grasp_frame_transform.translation().z() = 0.08;
 
       // clang-format off
       auto wrapper =
           std::make_unique<mtc::stages::ComputeIK>("grasp pose IK", std::move(stage));
       // clang-format on
       wrapper->setMaxIKSolutions(8);
-      wrapper->setMinSolutionDistance(1.0);
+      wrapper->setMinSolutionDistance(0.05);
       wrapper->setIKFrame(grasp_frame_transform, hand_frame);
-      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group" });
-      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, { "target_pose" });
+      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, {"eef", "group"});
+      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, {"target_pose"});
       grasp->insert(std::move(wrapper));
     }
 
@@ -238,11 +256,11 @@ mtc::Task MTCTaskNode::createTask()
       auto stage =
           std::make_unique<mtc::stages::MoveRelative>("lift object", cartesian_planner);
       // clang-format on
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      
+      stage->properties().configureInitFrom(mtc::Stage::PARENT, {"group"});
+
       // FIX: Lowered minimum distance to 0.05m
       stage->setMinMaxDistance(0.05, 0.25);
-      
+
       stage->setIKFrame(hand_frame);
       stage->properties().set("marker_ns", "lift_object");
 
@@ -258,8 +276,8 @@ mtc::Task MTCTaskNode::createTask()
   {
     auto stage_move_to_place = std::make_unique<mtc::stages::Connect>(
         "move to place",
-        mtc::stages::Connect::GroupPlannerVector{ { arm_group_name, sampling_planner } });
-    
+        mtc::stages::Connect::GroupPlannerVector{{arm_group_name, sampling_planner}});
+
     stage_move_to_place->setTimeout(5.0);
     stage_move_to_place->properties().configureInitFrom(mtc::Stage::PARENT);
     task.add(std::move(stage_move_to_place));
@@ -267,7 +285,7 @@ mtc::Task MTCTaskNode::createTask()
 
   {
     auto place = std::make_unique<mtc::SerialContainer>("place object");
-    task.properties().exposeTo(place->properties(), { "eef", "group", "ik_frame" });
+    task.properties().exposeTo(place->properties(), {"eef", "group", "ik_frame"});
     // clang-format off
     place->properties().configureInitFrom(mtc::Stage::PARENT,
                                           { "eef", "group", "ik_frame" });
@@ -282,20 +300,21 @@ mtc::Task MTCTaskNode::createTask()
 
       geometry_msgs::msg::PoseStamped target_pose_msg;
       target_pose_msg.header.frame_id = "object";
-      target_pose_msg.pose.position.y = 0.5;
+      target_pose_msg.pose.position.y = 0.7;
+      target_pose_msg.pose.position.x = -0.3;
       target_pose_msg.pose.orientation.w = 1.0;
       stage->setPose(target_pose_msg);
-      stage->setMonitoredStage(attach_object_stage);
+      stage->setMonitoredStage(attach_object_stage); // Hook into attach_object_stage
 
       // clang-format off
       auto wrapper =
           std::make_unique<mtc::stages::ComputeIK>("place pose IK", std::move(stage));
       // clang-format on
-      wrapper->setMaxIKSolutions(2);
-      wrapper->setMinSolutionDistance(1.0);
+      wrapper->setMaxIKSolutions(6);
+      wrapper->setMinSolutionDistance(0.05);
       wrapper->setIKFrame("object");
-      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, { "eef", "group" });
-      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, { "target_pose" });
+      wrapper->properties().configureInitFrom(mtc::Stage::PARENT, {"eef", "group"});
+      wrapper->properties().configureInitFrom(mtc::Stage::INTERFACE, {"target_pose"});
       place->insert(std::move(wrapper));
     }
 
@@ -327,11 +346,11 @@ mtc::Task MTCTaskNode::createTask()
 
     {
       auto stage = std::make_unique<mtc::stages::MoveRelative>("retreat", cartesian_planner);
-      stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
-      
+      stage->properties().configureInitFrom(mtc::Stage::PARENT, {"group"});
+
       // FIX: Lowered minimum distance to 0.05m
       stage->setMinMaxDistance(0.05, 0.25);
-      
+
       stage->setIKFrame(hand_frame);
       stage->properties().set("marker_ns", "retreat");
 
@@ -346,7 +365,7 @@ mtc::Task MTCTaskNode::createTask()
 
   {
     auto stage = std::make_unique<mtc::stages::MoveTo>("return home", interpolation_planner);
-    stage->properties().configureInitFrom(mtc::Stage::PARENT, { "group" });
+    stage->properties().configureInitFrom(mtc::Stage::PARENT, {"group"});
     std::map<std::string, double> home_joints;
     home_joints["joint1"] = 0.0;
     home_joints["joint2"] = 0.0;
@@ -360,7 +379,7 @@ mtc::Task MTCTaskNode::createTask()
   return task;
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
 
@@ -370,11 +389,11 @@ int main(int argc, char** argv)
   auto mtc_task_node = std::make_shared<MTCTaskNode>(options);
   rclcpp::executors::MultiThreadedExecutor executor;
 
-  auto spin_thread = std::make_unique<std::thread>([&executor, &mtc_task_node]() {
+  auto spin_thread = std::make_unique<std::thread>([&executor, &mtc_task_node]()
+                                                   {
     executor.add_node(mtc_task_node->getNodeBaseInterface());
     executor.spin();
-    executor.remove_node(mtc_task_node->getNodeBaseInterface());
-  });
+    executor.remove_node(mtc_task_node->getNodeBaseInterface()); });
 
   mtc_task_node->setupPlanningScene();
   mtc_task_node->doTask();
