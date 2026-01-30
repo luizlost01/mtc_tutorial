@@ -143,7 +143,6 @@ mtc::Task MTCTaskNode::createTask()
   auto cartesian_planner = std::make_shared<mtc::solvers::CartesianPath>();
   cartesian_planner->setMaxVelocityScalingFactor(1.0);
   cartesian_planner->setMaxAccelerationScalingFactor(1.0);
-  // FIX: Reduced step size to 0.002 (2mm) to prevent "trajectory too short" warnings
   cartesian_planner->setStepSize(0.002);
 
   // clang-format off
@@ -185,7 +184,6 @@ mtc::Task MTCTaskNode::createTask()
       stage->properties().set("link", hand_frame);
       stage->properties().configureInitFrom(mtc::Stage::PARENT, {"group"});
 
-      // FIX: Lowered minimum distance to 0.05m (5cm) to allow more flexible solutions
       stage->setMinMaxDistance(0.05, 0.15);
 
       geometry_msgs::msg::Vector3Stamped vec;
