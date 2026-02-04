@@ -208,7 +208,8 @@ mtc::Task MTCTaskNode::createTask()
                              Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitY()) *
                              Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ());
       grasp_frame_transform.linear() = q.matrix();
-      grasp_frame_transform.translation().z() = 0.08;
+      // Define o quanto o gripper entra no objeto para pegar melhor, ajustando a posição do frame de preensão
+      grasp_frame_transform.translation().z() = 0.0;
 
       // clang-format off
       auto wrapper =
